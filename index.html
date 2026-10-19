@@ -1,0 +1,770 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAG Flowchart</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+/* Same look as week-02/finder/flowchart.html and reels/carousel_light.py: mint page, dark green ink, orange accent, white cards */
+:root {
+  --bg: #EEF5EF;
+  --ink: #14452F;
+  --ink-2: #1D6B49;
+  --muted: #5E8C72;
+  --line: #CFE0D4;
+  --card: #FFFFFF;
+  --accent: #E8743B;
+  --soft: #BFE3CC;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: Inter, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+
+.top { max-width: 1440px; margin: 0 auto; padding: 14px 16px 10px; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+.group { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.hint { flex: 1 1 240px; font-size: 14px; color: var(--muted); }
+button { font: 600 14px Inter, sans-serif; color: var(--ink); background: var(--card); border: 2px solid var(--line); border-radius: 999px; padding: 7px 14px; cursor: pointer; }
+button:hover { border-color: var(--ink-2); }
+button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+button.on { background: var(--ink); border-color: var(--ink); color: #fff; }
+button.play { background: var(--accent); border-color: var(--accent); color: #fff; min-width: 92px; }
+.count { font: 700 13px 'JetBrains Mono', monospace; color: var(--muted); min-width: 70px; text-align: center; }
+
+.stage { max-width: 1440px; margin: 0 auto; padding: 0 16px 32px; display: grid; gap: 16px; }
+.chart { position: relative; border: 2px solid var(--line); border-radius: 20px; overflow: hidden; background: var(--bg); margin: 0 auto; }
+.chart svg { display: block; width: 100%; height: 100%; user-select: none; -webkit-user-select: none; }
+body.wide .chart { width: 100%; aspect-ratio: 1470 / 880; max-height: calc(100vh - 80px); }
+body.tall .chart { aspect-ratio: 9 / 16; height: min(calc(100vh - 80px), calc((100vw - 32px) * 16 / 9)); max-width: 100%; }
+@media (min-width: 960px) {
+  body.tall .stage { grid-template-columns: auto 400px; justify-content: center; }
+  body.tall .panel { max-height: calc(100vh - 80px); overflow: auto; }
+}
+body.wide .panel { max-width: 900px; width: 100%; margin: 0 auto; }
+.chart:fullscreen { width: 100vw; height: 100vh; max-height: none; aspect-ratio: auto; border: 0; border-radius: 0; }
+
+/* Side panel: what the selected box means */
+.panel { background: var(--card); border: 2px solid var(--line); border-radius: 20px; padding: 20px 22px 24px; align-self: start; }
+.panel .tag { display: inline-block; font: 700 12px 'JetBrains Mono', monospace; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); }
+.panel h2 { font: 700 28px/1.15 Fraunces, serif; margin: 6px 0 12px; }
+.panel .helps { font-weight: 700; font-size: 17px; line-height: 1.45; margin: 0 0 4px; }
+.panel h3 { font: 700 11px 'JetBrains Mono', monospace; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin: 16px 0 4px; }
+.panel p { margin: 0; font-size: 15px; line-height: 1.6; color: #24553D; }
+
+/* Inside the chart */
+.node { cursor: grab; touch-action: none; transition: opacity .35s ease; }
+.node.dragging { cursor: grabbing; }
+.node rect { fill: var(--card); stroke: var(--line); stroke-width: 2; transition: stroke .2s ease; }
+.node.flow rect { fill: var(--ink); stroke: var(--ink); }
+.node .t { font: 700 17px Inter, sans-serif; fill: var(--ink); }
+.node .s { font: 500 13px Inter, sans-serif; fill: var(--muted); }
+.node.flow .t { fill: #fff; }
+.node.flow .s { fill: var(--soft); }
+.node .badge circle { fill: var(--accent); }
+.node .badge text { font: 800 13px Inter, sans-serif; fill: #fff; }
+.node:hover rect { stroke: var(--ink-2); }
+.node.sel rect, .node.cur rect { stroke: var(--accent); stroke-width: 4; }
+.node.cur rect { filter: drop-shadow(0 6px 14px rgba(232, 116, 59, .35)); }
+
+.edge path { fill: none; stroke: var(--ink-2); stroke-width: 2.5; transition: stroke .2s ease; }
+.edge.dash path { stroke-dasharray: 7 6; }
+.edge.cur path { stroke: var(--accent); stroke-width: 3; }
+.edge text { font: 600 12px Inter, sans-serif; fill: var(--muted); paint-order: stroke; stroke: var(--bg); stroke-width: 6px; stroke-linejoin: round; }
+.edge { transition: opacity .35s ease; }
+
+svg.playing .node:not(.seen) { opacity: .18; }
+svg.playing .edge:not(.seen) { opacity: .12; }
+
+.kick { font: 700 13px 'JetBrains Mono', monospace; letter-spacing: 4px; fill: var(--accent); }
+.title { font: 700 40px Fraunces, serif; fill: var(--ink); }
+.sub { font: 600 16px Inter, sans-serif; fill: #3E6B54; }
+.lane { font: 700 12px 'JetBrains Mono', monospace; letter-spacing: 3px; fill: var(--muted); }
+.handle { font: 600 14px 'JetBrains Mono', monospace; letter-spacing: 2px; fill: var(--muted); }
+.caption { height: 100%; display: flex; align-items: center; justify-content: center; text-align: center; padding: 10px 22px; background: var(--card); border: 2px solid var(--line); border-radius: 18px; font: 600 22px/1.35 Inter, sans-serif; color: var(--ink); }
+.caption span { display: block; }
+.caption b { color: var(--accent); }
+body.tall .caption { font-size: 24px; }
+
+/* Video mode (?video=tall or ?video=wide): only the chart, filling the window, drawn frame by frame by window.render(t) */
+.overlay { display: none; }
+body.video .top, body.video .panel { display: none; }
+body.video .stage { display: block; max-width: none; padding: 0; }
+body.video .chart { width: 100vw; height: 100vh; max-width: none; max-height: none; aspect-ratio: auto; border: 0; border-radius: 0; }
+body.video *, body.video *::before { transition: none !important; }
+body.video .overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3.2vmin; padding: 6vmin; text-align: center; background: rgba(238, 245, 239, .93); opacity: 0; }
+.overlay .ov-emoji { font-size: 13vmin; line-height: 1; }
+.overlay .ov-title { background: var(--card); border: .5vmin solid var(--line); border-radius: 5vmin; padding: 3.4vmin 5vmin; font: 700 8vmin/1.08 Fraunces, serif; letter-spacing: -.15vmin; color: var(--ink); }
+.overlay .ov-card { background: var(--ink); color: #fff; border-radius: 4vmin; padding: 5vmin 6vmin; max-width: 86vmin; }
+.overlay .ov-card p { margin: 0; font: 700 6.4vmin/1.12 Fraunces, serif; }
+.overlay .ov-card span { display: block; margin-top: 2.4vmin; font: 600 3.2vmin 'JetBrains Mono', monospace; letter-spacing: .3vmin; color: var(--soft); }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="group" role="group" aria-label="Walk through the flow">
+    <button type="button" id="prev" aria-label="Previous step">◀</button>
+    <button type="button" id="play" class="play">▶ Play</button>
+    <button type="button" id="next" aria-label="Next step">▶</button>
+    <span class="count" id="count" aria-live="polite"></span>
+  </div>
+  <div class="group" role="group" aria-label="Chart shape">
+    <button type="button" id="wideBtn">Wide · LinkedIn</button>
+    <button type="button" id="tallBtn">Tall · Reel</button>
+  </div>
+  <div class="group">
+    <button type="button" id="reset">Reset boxes</button>
+    <button type="button" id="full">Full screen</button>
+  </div>
+  <span class="hint">Drag boxes to move them. Tap a box to read about it. Keys: Space play · ← → steps</span>
+</div>
+
+<div class="stage">
+  <div class="chart" id="chart">
+    <svg id="svg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Flowchart: how a RAG bot answers a question from your PDFs"></svg>
+    <div class="overlay" id="cover" aria-hidden="true">
+      <div class="ov-emoji">📄</div>
+      <div class="ov-title">7 Ideas Behind<br>Every “Chat With<br>Your PDF” Bot</div>
+    </div>
+    <div class="overlay" id="follow" aria-hidden="true">
+      <div class="ov-card"><p>Follow for more simple AI tips like this.</p><span>sushma_reshamwala</span></div>
+    </div>
+  </div>
+  <aside class="panel" id="panel" aria-live="polite"></aside>
+</div>
+
+<script>
+const NS = "http://www.w3.org/2000/svg";
+let W = 210, H = 84; // box size, set per layout in build()
+
+// Boxes. flow = one of the RAG steps in your app (dark), num = one of the 7 ideas (white, numbered)
+const NODES = {
+  pdfs:       { t: "📄 Your PDFs",      s: ["5 GST PDFs · 872 pages"], flow: true },
+  load:       { t: "Loading files",     s: ["PDF → text, page by page"], num: 1 },
+  chunk:      { t: "✂️ Chunk + embed",  s: ["Stage 04 again:", "120 words → 384 numbers"], flow: true },
+  store:      { t: "🗄️ Store",          s: ["Qdrant · 2,959 pieces", "each with its page"], flow: true },
+  frameworks: { t: "Frameworks",        s: ["ready-made parts:", "LangChain, LlamaIndex"], num: 7 },
+  question:   { t: "💬 The question",   s: ["“Ghee aur butter pe", "GST kitna hai?”"], flow: true },
+  rewrite:    { t: "Query rewriting",   s: ["→ “GST rate on", "ghee and butter”"], num: 2 },
+  search:     { t: "🔎 Search",         s: ["Stage 04 · closest 8", "by meaning + keywords"], flow: true },
+  grounded:   { t: "Grounded answers",  s: ["only from these pieces,", "else “not in the docs”"], num: 3 },
+  llm:        { t: "🤖 The LLM",        s: ["writes the answer", "Groq · gpt-oss-20b"], flow: true },
+  cite:       { t: "Citations",         s: ["[goods2025 p.1]", "open the page, check it"], num: 4 },
+  answer:     { t: "✅ The answer",     s: ["“Ghee aur butter pe", "GST 5% hai.”"], flow: true },
+  test:       { t: "🧪 Test set",       s: ["20 questions,", "answers known"], flow: true },
+  score:      { t: "Scoring RAG",       s: ["meaning only: 16 of 20", "+ keywords: 18 of 20"], num: 5 },
+  failures:   { t: "Common failures",   s: ["read every wrong answer"], num: 6 }
+};
+
+// noTallLabel: the label is hidden in the tall layout, where side-by-side boxes are only 40 px apart
+const EDGES = [
+  { id: "pdfs-load",        from: "pdfs",       to: "load" },
+  { id: "load-chunk",       from: "load",       to: "chunk",    label: "text + page", noTallLabel: true },
+  { id: "chunk-store",      from: "chunk",      to: "store" },
+  { id: "frameworks-store", from: "frameworks", to: "store",    label: "ready-made", dash: true, noTallLabel: true },
+  { id: "question-rewrite", from: "question",   to: "rewrite" },
+  { id: "rewrite-search",   from: "rewrite",    to: "search",   label: "clean query", noTallLabel: true },
+  { id: "store-search",     from: "store",      to: "search",   label: "closest 8" },
+  { id: "search-grounded",  from: "search",     to: "grounded", label: "8 pieces" },
+  { id: "grounded-llm",     from: "grounded",   to: "llm",      label: "prompt", noTallLabel: true },
+  { id: "llm-cite",         from: "llm",        to: "cite" },
+  { id: "cite-answer",      from: "cite",       to: "answer" },
+  { id: "answer-score",     from: "answer",     to: "score",    label: "is it right?", dash: true },
+  { id: "test-score",       from: "test",       to: "score" },
+  { id: "score-failures",   from: "score",      to: "failures", label: "the misses", noTallLabel: true }
+];
+
+// Two starting layouts. Wide fits LinkedIn and a laptop, tall fits a Reel (9:16)
+const LAYOUTS = {
+  wide: {
+    w: 1470, h: 880, box: [210, 84],
+    title: ["How a bot answers from your PDFs"], titleY: 100,
+    sub: ["You are vibe-coding Ask GST, a bot that answers only from GST PDFs. Dark boxes are the RAG steps. White boxes are the 7 ideas."], subY: 136,
+    lanes: [["① BEFORE ANY QUESTION · LOAD → CHUNK → EMBED → STORE", 190], ["② WHEN SOMEONE ASKS · SEARCH → ANSWER", 345], ["③ CHECK IT", 625]],
+    caption: [30, 752, 1410, 84], handleY: 864,
+    pos: {
+      pdfs: [30, 205], load: [330, 205], chunk: [630, 205], store: [930, 205], frameworks: [1230, 205],
+      question: [30, 360], rewrite: [330, 360], search: [630, 360], grounded: [930, 360], llm: [1230, 360],
+      answer: [930, 500], cite: [1230, 500],
+      test: [330, 640], score: [630, 640], failures: [930, 640]
+    }
+  },
+  tall: {
+    w: 720, h: 1280, box: [200, 84],
+    title: ["How a bot answers", "from your PDFs"], titleY: 108,
+    sub: ["Ask GST answers only from GST PDFs.", "Dark boxes = RAG steps. White boxes = the 7 ideas."], subY: 200,
+    lanes: [["① BEFORE ANY QUESTION", 268], ["② WHEN SOMEONE ASKS", 532], ["③ CHECK IT", 915]],
+    caption: [20, 1108, 680, 112], handleY: 1256,
+    pos: {
+      pdfs: [20, 282], load: [260, 282], chunk: [500, 282],
+      frameworks: [260, 402], store: [500, 402],
+      question: [20, 545], rewrite: [260, 545], search: [500, 545],
+      cite: [20, 665], llm: [260, 665], grounded: [500, 665],
+      answer: [20, 785],
+      test: [20, 930], score: [260, 930], failures: [500, 930]
+    }
+  }
+};
+
+// Play mode: one box per step, with the caption shown inside the chart
+const STEPS = [
+  { node: null,         edges: [], cap: "You are building Ask GST. A shopkeeper asks a GST question. Watch the bot find the answer in <b>872 pages</b>." },
+  { node: "pdfs",       edges: [], cap: "Start with the documents the bot may use: <b>5 GST PDFs</b>, 872 pages." },
+  { node: "load",       edges: ["pdfs-load"], cap: "<b>Loading:</b> each PDF becomes plain text, page by page. The page number stays with the text." },
+  { node: "chunk",      edges: ["load-chunk"], cap: "The text is cut into <b>120-word pieces</b>, and each piece becomes 384 numbers. Same as Stage 04." },
+  { node: "store",      edges: ["chunk-store"], cap: "All <b>2,959 pieces</b> go into Qdrant, each with its text, PDF name and page." },
+  { node: "question",   edges: [], cap: "Now someone asks: <b>“Ghee aur butter pe GST kitna hai?”</b>" },
+  { node: "rewrite",    edges: ["question-rewrite"], cap: "<b>Query rewriting:</b> one small LLM call turns it into “GST rate on ghee and butter”." },
+  { node: "search",     edges: ["rewrite-search", "store-search"], cap: "Search finds the <b>8 closest pieces</b>, by meaning and by keywords." },
+  { node: "grounded",   edges: ["search-grounded"], cap: "The prompt says: <b>answer only from these 8 pieces</b>. If they don't have it, reply NOT_IN_DOCS." },
+  { node: "llm",        edges: ["grounded-llm"], cap: "The LLM reads the 8 pieces and writes a <b>short answer</b>." },
+  { node: "cite",       edges: ["llm-cite"], cap: "It ends with the pages it used: <b>[goods2025 p.1]</b>. Anyone can open that page and check." },
+  { node: "answer",     edges: ["cite-answer"], cap: "<b>“Ghee aur butter pe GST 5% hai.”</b> The answer, the page, and “confirm with your CA”." },
+  { node: "test",       edges: [], cap: "Does it really work? Ask <b>20 questions</b> you already know the answer to." },
+  { node: "score",      edges: ["test-score", "answer-score"], cap: "Meaning search only: <b>16 of 20</b> right. Meaning + keywords: <b>18 of 20</b>." },
+  { node: "failures",   edges: ["score-failures"], cap: "Read every miss. One answer cited the <b>right page but was still wrong</b>." },
+  { node: "frameworks", edges: ["frameworks-store"], cap: "LangChain or LlamaIndex give <b>ready-made parts</b> for all of this. Build it by hand once first." }
+];
+const IDLE_CAPTION = "Tap <b>▶ Play</b> to walk through it, or tap any box to read about it.";
+
+// What each box means. Real numbers come from smp/project/ask-gst (answers saved 13 Oct 2026, checked 15 Oct 2026)
+const DETAIL = {
+  intro: {
+    tag: "How to use", title: "How a bot answers from your PDFs",
+    helps: "RAG means: first find the right pages in your documents, then let the LLM answer using only those pages.",
+    blocks: [
+      ["The example", "Ask GST, your RAG project. A shopkeeper asks a GST question in Hinglish or English. The bot answers only from 5 government PDFs, and shows the page."],
+      ["The RAG steps", "Load → chunk → embed → store: done once, before any question. Search → answer: done every time someone asks. The dark boxes are these steps."],
+      ["The 7 ideas", "The white numbered boxes are what makes the answer right, in the order the bot uses them. Steps + 7 ideas = the 8 topics of Stage 05."],
+      ["Watch it", "Press ▶ Play. One box lights up at a time, with a one-line caption inside the chart."],
+      ["Move it", "Drag any box to a new place. The arrows follow. Your layout is kept for next time. Reset boxes puts them back."],
+      ["Share it", "For a Reel, pick Tall · Reel, press Full screen and screen-record while it plays. For LinkedIn, pick Wide and take a screenshot."]
+    ]
+  },
+  pdfs: {
+    tag: "RAG step · your app", title: "Your PDFs",
+    helps: "The documents the bot is allowed to answer from. Nothing else.",
+    blocks: [
+      ["Example", "5 government GST PDFs: a 561-page FAQ from 2018, the CGST Act, a 10-page FAQ on the new rates, and two rate lists from September 2025. 872 pages in all."],
+      ["In a real app", "A company handbook, product manuals, help pages, contracts, your own notes."],
+      ["Watch out", "Old documents give old answers. The 2018 FAQ has 2018 rates. So the prompt says: for rates, trust only the 2025 PDFs."],
+      ["In Ask GST", "data/raw/ holds the PDFs. data/sources.json lists each one with its date."]
+    ]
+  },
+  load: {
+    tag: "Idea 1", title: "Loading files",
+    helps: "Loading turns a PDF, web page or Word file into plain text that your code can cut and search.",
+    blocks: [
+      ["Example", "A PDF is made for printing, not for code. A small library reads it page by page and gives back plain text. We keep the page number with the text, so we can show it later."],
+      ["In Ask GST", "pymupdf reads all 872 pages. Two of the 5 PDFs could not be downloaded from the CBIC site, because it shows them inside a viewer page. We used copies from a tax website."],
+      ["Watch out", "Tables come out as a long line of words. Headers and footers get mixed into the text: the 2025 FAQ has “9/9/25, 12:53 PM Press Release” right in the middle of an answer."],
+      ["Used in real work", "pypdf or pymupdf for PDFs, python-docx for Word, BeautifulSoup for web pages. A scanned PDF is only a picture, so it needs OCR first (reading text from an image)."]
+    ]
+  },
+  chunk: {
+    tag: "RAG step · Stage 04", title: "Chunk + embed",
+    helps: "Cut the text into small pieces and turn each piece into 384 numbers, so search can find it by meaning. You learned this in Stage 04.",
+    blocks: [
+      ["Example", "The word “ghee” is on page 1 of the goods rate list. A 120-word piece around it is small enough to find, and big enough to read."],
+      ["In Ask GST", "120-word pieces. The last 40 words of a piece repeat at the start of the next, so a sentence cut at the edge is still whole in one piece."],
+      ["Small trick", "A rate list says “Schedule I – 5%” once, then lists hundreds of items below it. A piece from the middle never sees that line. So each piece is stamped with its schedule: “[Schedule I, GST rate 5%] … ghee …”."],
+      ["Go deeper", "Adding a little context to each piece before you embed it is called contextual retrieval."]
+    ]
+  },
+  store: {
+    tag: "RAG step · your app", title: "Store",
+    helps: "Keep every piece in a vector database, with its numbers, its text and where it came from.",
+    blocks: [
+      ["Example", "Each piece is saved with: its 384 numbers, its keyword scores, the text, the PDF name, the page number and the date."],
+      ["In Ask GST", "2,959 pieces in Qdrant, running inside Python on the laptop. Building it takes about 3 minutes, once."],
+      ["Why keep the page", "No page saved now = no citation later. It costs nothing to save."],
+      ["Watch out", "Added a new PDF? Run ingest again, or the bot does not know it exists."]
+    ]
+  },
+  frameworks: {
+    tag: "Idea 7", title: "Frameworks",
+    helps: "LangChain and LlamaIndex give you ready-made parts for every box: file loaders, splitters, a Qdrant link, prompt templates.",
+    blocks: [
+      ["Example", "In LangChain, “load this PDF, cut it, store it in Qdrant” is a few lines. Ask GST writes the same steps by hand, in ingest.py and ask.py."],
+      ["Why by hand first", "When an answer is wrong, you need to see each step: the rewritten question, the 8 pieces, the prompt. The ghee fix came from looking at the 8 pieces. Inside a framework, these steps are harder to see."],
+      ["When to use one", "Many file types, many databases to try, or a team that already uses it."],
+      ["Go deeper", "Agentic RAG: instead of always searching once, an agent decides when to search and what to search for. That comes in Stage 06."]
+    ]
+  },
+  question: {
+    tag: "Your app", title: "The question",
+    helps: "What the person types. Often short, often in Hinglish, and never in the words the PDF uses.",
+    blocks: [
+      ["Example 1", "“Ghee aur butter pe GST kitna hai?” The PDF lists “ghee” in a table. It never says “kitna hai”."],
+      ["Example 2", "“What is the income tax slab for FY 2026-27?” This is not in any GST PDF. The bot must say it does not know."]
+    ]
+  },
+  rewrite: {
+    tag: "Idea 2", title: "Query rewriting",
+    helps: "Query rewriting turns a vague or Hinglish question into a clear search line before you search.",
+    blocks: [
+      ["Example", "“Ghee aur butter pe GST kitna hai?” → “GST rate on ghee and butter”. One extra LLM call, before the search."],
+      ["In Ask GST", "Every question goes through it. “Tractor pe kitna GST lagta hai?” became “GST on tractor HSN 8701”. It even added the right product code."],
+      ["Watch out", "It can add something wrong. In one run, “GST rate on toilet soap?” became “… toilet soap HSN 3005”. 3005 is the code for bandages. Soap is 3401. Look at the rewritten line, not only the answer."],
+      ["Go deeper", "Other ways: write 3 versions of the question and search with all 3 (multi-query). Or let the LLM write a guess answer and search with that (HyDE)."]
+    ]
+  },
+  search: {
+    tag: "RAG step · Stage 04", title: "Search",
+    helps: "Find the 8 pieces closest to the question. This is Stage 04: meaning search plus keyword search.",
+    blocks: [
+      ["Example", "For “GST rate on ghee and butter”, keyword search finds the word “ghee” on page 1 of the goods rate list."],
+      ["In Ask GST", "With meaning search only, that page never came up, and the bot said “not in the documents”. With keywords added, it found the page and answered 5%."],
+      ["Why 8", "Too few, and the right piece may be missing. Too many, and the LLM gets lost in extra text. TOP_K = 8 in config.py. Try 4 and 12, and run the test set."]
+    ]
+  },
+  grounded: {
+    tag: "Idea 3", title: "Grounded answers",
+    helps: "A grounded answer uses only the pages you gave the LLM, and says “I don't know” when they do not have it.",
+    blocks: [
+      ["Example", "The prompt says: “Answer ONLY from the PASSAGES. If they do not answer the question, reply exactly NOT_IN_DOCS.” Your code sees NOT_IN_DOCS and shows a polite “not in the documents”."],
+      ["In Ask GST", "3 of the 20 test questions are not in the PDFs: the income tax slab, the best GST software, and “Kya Groq free hai?”. The bot said “not in the documents” to all 3."],
+      ["Why it matters", "Without this rule, the LLM fills gaps from memory. For tax, an old rate from memory is worse than “I don't know”."],
+      ["Watch out", "Grounded does not mean right. See Common failures."]
+    ]
+  },
+  llm: {
+    tag: "RAG step · your app", title: "The LLM",
+    helps: "Reads the question and the 8 pieces, and writes a short answer.",
+    blocks: [
+      ["What it gets", "Today's date, then the 8 pieces, each with a tag like [goods2025 p.1] and its date, then the question."],
+      ["In Ask GST", "Groq's free gpt-oss-20b, temperature 0, so the same question gives the same answer."],
+      ["Rules that helped", "Reply in the same language as the question. A services list says “central tax 9%”: that is only half, so the answer must say 18% total."]
+    ]
+  },
+  cite: {
+    tag: "Idea 4", title: "Citations",
+    helps: "Citations show which page each answer came from, so people can open it and check.",
+    blocks: [
+      ["Example", "“Ghee aur butter pe GST 5% hai. Sources: [goods2025 p.1], [goods2025 p.6]”."],
+      ["How it works", "Each piece goes into the prompt with a tag like [goods2025 p.1]. The prompt says: end with the tags of the pieces you used. The page number came all the way from the loading step."],
+      ["In Ask GST", "One answer about ITC was wrong, but it cited [faq2025 p.2]. Opening page 2 shows the mistake in a few seconds. That is why citations matter."],
+      ["Used in real work", "Perplexity, NotebookLM, ChatGPT search: the small source numbers after each line."]
+    ]
+  },
+  answer: {
+    tag: "RAG step · your app", title: "The answer",
+    helps: "What the person sees: a short answer, the page, and a line to check with a CA.",
+    blocks: [
+      ["Found", "“Ghee aur butter pe GST 5% hai. Sources: [goods2025 p.1], [goods2025 p.6]. Yeh general info hai, final decision ke liye apne CA se confirm karein.”"],
+      ["Not found", "“Yeh sawaal in documents mein nahi mila. Please apne CA se poochhein.”"]
+    ]
+  },
+  test: {
+    tag: "Your app", title: "Test set",
+    helps: "A test set tells you if a change made the bot better or worse.",
+    blocks: [
+      ["Example", "20 questions where you already know the answer: 17 are in the PDFs, 3 are not. Each has one word the answer must contain, like “5%” or “HSN”."],
+      ["In Ask GST", "data/eval_questions.json. Run uv run app/eval.py after every change, and compare the score."]
+    ]
+  },
+  score: {
+    tag: "Idea 5", title: "Scoring RAG",
+    helps: "Scoring checks two things: did search find the right page, and did the answer stick to that page.",
+    blocks: [
+      ["In Ask GST", "Meaning search only: 16 of 20. Meaning + keywords: 18 of 20. These are the answers saved on 13 Oct, checked with today's eval.py."],
+      ["Check your checker", "The first checker marked “₹20 lakh” wrong: the LLM had put a thin, special space between 20 and lakh. eval.py now cleans spaces first. Another miss said “naya GST rate” when the checker wanted “naya rate”. The answer was right."],
+      ["Watch out", "The two runs were made 12 minutes apart, and a setting changed in between. Run both again before you post the numbers."],
+      ["Go deeper", "A word match is a rough check. RAGAS uses an LLM as a judge. Context recall: did search bring the right page? Faithfulness: is every line of the answer backed by the pieces?"]
+    ]
+  },
+  failures: {
+    tag: "Idea 6", title: "Common failures",
+    helps: "Read every wrong answer. Each one tells you which step to fix.",
+    blocks: [
+      ["Missing page", "“Ghee” with meaning search only: the rate list page never came up, so the bot said “not in the documents”. Fix: add keyword search."],
+      ["Lost header", "A piece from the middle of a rate table did not know its rate. Fix: stamp each piece with its table header."],
+      ["Right page, wrong answer", "“Rate kam ho gaya, purana ITC use kar sakta hoon?” Page 2 has two questions that look alike. Q8: rate went down, yes, keep using the credit. Q9: the item is now exempt, so reverse it. The bot gave Q9's answer. Fix to try: cut FAQ pages at each question, so Q8 and Q9 are separate pieces."],
+      ["Answer split in two", "Q11 is at the bottom of page 2, and its answer is at the top of page 3. Ask GST's pieces run across pages, so they stay together. One piece per page would cut them apart."],
+      ["Pieces too big or too small", "Too big: many topics in one piece, so search gets fuzzy. Too small: the answer gets cut in half."]
+    ]
+  }
+};
+
+const svg = document.getElementById("svg");
+const panel = document.getElementById("panel");
+const chart = document.getElementById("chart");
+let layout = "wide", pos = {}, step = -1, timer = null, selected = null;
+const VIDEO = new URLSearchParams(location.search).get("video"); // "tall" or "wide" when recording a video
+const els = { nodes: {}, edges: {} };
+
+function store(key, value) {
+  try {
+    if (value === undefined) return JSON.parse(localStorage.getItem(key));
+    if (value === null) localStorage.removeItem(key); else localStorage.setItem(key, JSON.stringify(value));
+  } catch (e) { return null; } // storage blocked: layout lasts for this visit only
+}
+
+function el(tag, attrs = {}, parent) {
+  const n = document.createElementNS(NS, tag);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(n);
+  return n;
+}
+
+function text(parent, x, y, cls, str, anchor) {
+  const t = el("text", { x, y, class: cls }, parent);
+  if (anchor) t.setAttribute("text-anchor", anchor);
+  t.textContent = str;
+  return t;
+}
+
+// Which side of box a faces box b, and the matching side of b
+function facingSides(a, b) {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  if (Math.abs(dx) / W > Math.abs(dy) / H) return dx > 0 ? ["r", "l"] : ["l", "r"];
+  return dy > 0 ? ["b", "t"] : ["t", "b"];
+}
+
+function sidePoint(p, side, offset, gap) {
+  const cx = p.x + W / 2, cy = p.y + H / 2;
+  if (side === "r") return [p.x + W + gap, cy + offset];
+  if (side === "l") return [p.x - gap, cy + offset];
+  if (side === "b") return [cx + offset, p.y + H + gap];
+  return [cx + offset, p.y - gap];
+}
+
+// Redraw every arrow. Arrows leave from the side that faces the other box
+function drawEdges() {
+  const slots = {}, sides = {}, offset = {};
+  EDGES.forEach(e => {
+    const [sf, st] = facingSides(pos[e.from], pos[e.to]);
+    sides[e.id] = [sf, st];
+    (slots[e.from + ":" + sf] ||= []).push({ key: e.id + ":from", other: e.to });
+    (slots[e.to + ":" + st] ||= []).push({ key: e.id + ":to", other: e.from });
+  });
+  for (const k in slots) {
+    const side = k.split(":")[1], list = slots[k];
+    const along = side === "t" || side === "b" ? "x" : "y";
+    list.sort((p, q) => pos[p.other][along] - pos[q.other][along]);
+    list.forEach((s, i) => { offset[s.key] = (i - (list.length - 1) / 2) * 26; });
+  }
+  EDGES.forEach(e => {
+    const [sf, st] = sides[e.id];
+    const p0 = sidePoint(pos[e.from], sf, offset[e.id + ":from"], 0);
+    const p3 = sidePoint(pos[e.to], st, offset[e.id + ":to"], 3);
+    let p1, p2;
+    if (sf === "l" || sf === "r") { const mx = (p0[0] + p3[0]) / 2; p1 = [mx, p0[1]]; p2 = [mx, p3[1]]; }
+    else { const my = (p0[1] + p3[1]) / 2; p1 = [p0[0], my]; p2 = [p3[0], my]; }
+    const mid = [0, 1].map(i => (p0[i] + 3 * p1[i] + 3 * p2[i] + p3[i]) / 8);
+    const { path, label } = els.edges[e.id];
+    path.setAttribute("d", `M${p0} C${p1} ${p2} ${p3}`);
+    if (label) { label.setAttribute("x", mid[0]); label.setAttribute("y", mid[1] + 4); }
+  });
+}
+
+function build() {
+  const L = LAYOUTS[layout];
+  [W, H] = L.box;
+  svg.setAttribute("viewBox", `0 0 ${L.w} ${L.h}`);
+  svg.replaceChildren();
+  els.nodes = {}; els.edges = {};
+
+  const defs = el("defs", {}, svg);
+  const grid = el("pattern", { id: "grid", width: 40, height: 40, patternUnits: "userSpaceOnUse" }, defs);
+  el("path", { d: "M40 0H0V40", fill: "none", stroke: "rgba(20,69,47,.07)", "stroke-width": 1.5 }, grid);
+  [["arrow", "#1D6B49"], ["arrow-cur", "#E8743B"]].forEach(([id, color]) => {
+    const m = el("marker", { id, viewBox: "0 0 10 10", refX: 8, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse" }, defs);
+    el("path", { d: "M0,0 L10,5 L0,10 z", fill: color }, m);
+  });
+
+  el("rect", { width: L.w, height: L.h, fill: "#EEF5EF" }, svg);
+  el("rect", { width: L.w, height: L.h, fill: "url(#grid)" }, svg);
+
+  const head = el("g", {}, svg);
+  const left = L.pos.pdfs[0];
+  text(head, left, L.titleY - 52, "kick", "HOW RAG WORKS");
+  L.title.forEach((line, i) => text(head, left, L.titleY + i * 46, "title", line));
+  L.sub.forEach((line, i) => text(head, left, L.subY + i * 24, "sub", line));
+  L.lanes.forEach(([label, y]) => text(head, left, y, "lane", label));
+
+  const edgeLayer = el("g", {}, svg);
+  const nodeLayer = el("g", {}, svg);
+  el("g", { id: "dots" }, svg);
+
+  EDGES.forEach(e => {
+    const g = el("g", { class: "edge" + (e.dash ? " dash" : "") }, edgeLayer);
+    const path = el("path", { "marker-end": "url(#arrow)" }, g);
+    const showLabel = e.label && !(layout === "tall" && e.noTallLabel);
+    const label = showLabel ? text(g, 0, 0, "", e.label, "middle") : null;
+    els.edges[e.id] = { g, path, label, e };
+  });
+
+  Object.entries(NODES).forEach(([id, n]) => {
+    const g = el("g", { class: "node" + (n.flow ? " flow" : ""), tabindex: 0, role: "button", "aria-label": n.t.replace(/^\W+\s/, "") }, nodeLayer);
+    el("rect", { width: W, height: H, rx: 16 }, g);
+    const lines = n.s.length;
+    const titleY = lines === 1 ? 37 : 29;
+    text(g, 18, titleY, "t", n.t);
+    n.s.forEach((s, i) => text(g, 18, titleY + 23 + i * 17, "s", s));
+    if (n.num) {
+      const b = el("g", { class: "badge" }, g);
+      el("circle", { cx: 2, cy: 2, r: 14 }, b);
+      text(b, 2, 7, "", String(n.num), "middle");
+    }
+    els.nodes[id] = g;
+    addDrag(g, id);
+  });
+
+  const [cx, cy, cw, ch] = L.caption;
+  const fo = el("foreignObject", { x: cx, y: cy, width: cw, height: ch }, svg);
+  const cap = document.createElement("div");
+  cap.className = "caption";
+  const capText = document.createElement("span");
+  capText.id = "caption";
+  cap.appendChild(capText);
+  fo.appendChild(cap);
+  text(svg, L.w / 2, L.handleY, "handle", "sushma_reshamwala", "middle");
+
+  const saved = VIDEO ? {} : (store("rag-flow-" + layout) || {});
+  pos = {};
+  for (const id in NODES) {
+    const p = saved[id] || L.pos[id];
+    pos[id] = { x: p[0], y: p[1] };
+  }
+  Object.keys(NODES).forEach(place);
+  drawEdges();
+  paint();
+}
+
+function place(id) {
+  els.nodes[id].setAttribute("transform", `translate(${pos[id].x},${pos[id].y})`);
+}
+
+function svgPoint(evt) {
+  const pt = svg.createSVGPoint();
+  pt.x = evt.clientX; pt.y = evt.clientY;
+  return pt.matrixTransform(svg.getScreenCTM().inverse());
+}
+
+function addDrag(g, id) {
+  let start = null, orig = null, moved = false;
+  g.addEventListener("pointerdown", evt => {
+    evt.preventDefault();
+    g.setPointerCapture(evt.pointerId);
+    start = svgPoint(evt); orig = { ...pos[id] }; moved = false;
+    g.classList.add("dragging");
+    g.parentNode.appendChild(g); // dragged box stays on top
+  });
+  g.addEventListener("pointermove", evt => {
+    if (!start) return;
+    const p = svgPoint(evt), L = LAYOUTS[layout];
+    const dx = p.x - start.x, dy = p.y - start.y;
+    if (Math.hypot(dx, dy) > 4) moved = true;
+    if (!moved) return;
+    pos[id] = { x: Math.max(0, Math.min(L.w - W, orig.x + dx)), y: Math.max(0, Math.min(L.h - H, orig.y + dy)) };
+    place(id);
+    drawEdges();
+  });
+  const end = () => {
+    if (!start) return;
+    start = null;
+    g.classList.remove("dragging");
+    if (moved) saveLayout(); else select(id);
+  };
+  g.addEventListener("pointerup", end);
+  g.addEventListener("pointercancel", end);
+  g.addEventListener("keydown", evt => { if (evt.key === "Enter" || evt.key === " ") { evt.preventDefault(); evt.stopPropagation(); select(id); } });
+}
+
+function saveLayout() {
+  const out = {};
+  for (const id in pos) out[id] = [Math.round(pos[id].x), Math.round(pos[id].y)];
+  store("rag-flow-" + layout, out);
+}
+
+function select(id) {
+  stop();
+  step = -1;
+  selected = id;
+  paint();
+}
+
+// Draw the current state: which boxes are lit, the caption and the side panel
+function paint() {
+  const playing = step >= 0;
+  svg.classList.toggle("playing", playing);
+  const seenNodes = new Set(), seenEdges = new Set();
+  if (playing) STEPS.slice(0, step + 1).forEach(s => { if (s.node) seenNodes.add(s.node); s.edges.forEach(e => seenEdges.add(e)); });
+  const cur = playing ? STEPS[step] : null;
+
+  for (const id in els.nodes) {
+    const g = els.nodes[id];
+    g.classList.toggle("seen", seenNodes.has(id));
+    g.classList.toggle("cur", !!cur && cur.node === id);
+    g.classList.toggle("sel", !playing && selected === id);
+  }
+  for (const id in els.edges) {
+    const { g, path } = els.edges[id];
+    const isCur = !!cur && cur.edges.includes(id);
+    g.classList.toggle("seen", seenEdges.has(id));
+    g.classList.toggle("cur", isCur);
+    path.setAttribute("marker-end", isCur ? "url(#arrow-cur)" : "url(#arrow)");
+  }
+
+  document.getElementById("caption").innerHTML = playing ? cur.cap : IDLE_CAPTION;
+  document.getElementById("count").textContent = playing ? `${step} / ${STEPS.length - 1}` : "";
+  document.getElementById("play").textContent = timer ? "❚❚ Pause" : "▶ Play";
+  showPanel(playing ? (cur.node || "intro") : (selected || "intro"));
+}
+
+function showPanel(id) {
+  const d = DETAIL[id];
+  panel.replaceChildren();
+  const add = (tag, cls, str) => { const n = document.createElement(tag); if (cls) n.className = cls; n.textContent = str; panel.appendChild(n); };
+  add("span", "tag", d.tag);
+  add("h2", "", d.title);
+  add("p", "helps", d.helps);
+  d.blocks.forEach(([h, p]) => { add("h3", "", h); add("p", "", p); });
+}
+
+// A small dot runs along each new arrow, so a recording shows the direction
+function runDots(edgeIds) {
+  const layer = document.getElementById("dots");
+  edgeIds.forEach(id => {
+    const path = els.edges[id].path;
+    const dot = el("circle", { r: 7, fill: "#E8743B" }, layer);
+    const len = path.getTotalLength(), t0 = performance.now();
+    const tick = now => {
+      const k = Math.min(1, (now - t0) / 900);
+      const p = path.getPointAtLength(len * k);
+      dot.setAttribute("cx", p.x); dot.setAttribute("cy", p.y);
+      if (k < 1) requestAnimationFrame(tick); else dot.remove();
+    };
+    requestAnimationFrame(tick);
+  });
+}
+
+function go(n) {
+  step = Math.max(0, Math.min(STEPS.length - 1, n));
+  paint();
+  runDots(STEPS[step].edges);
+}
+
+function play() {
+  if (timer) { stop(); paint(); return; }
+  if (step < 0 || step >= STEPS.length - 1) go(0); else go(step + 1);
+  timer = setInterval(() => {
+    if (step >= STEPS.length - 1) { stop(); paint(); return; }
+    go(step + 1);
+  }, 3600);
+  paint();
+}
+
+function stop() { clearInterval(timer); timer = null; }
+
+function setLayout(name) {
+  stop();
+  layout = name;
+  document.body.className = name + (VIDEO ? " video" : "");
+  document.getElementById("wideBtn").classList.toggle("on", name === "wide");
+  document.getElementById("tallBtn").classList.toggle("on", name === "tall");
+  if (!VIDEO) store("rag-flow-shape", name);
+  build();
+  if (step >= 0) go(step);
+}
+
+document.getElementById("play").addEventListener("click", play);
+document.getElementById("next").addEventListener("click", () => { stop(); go(step + 1); });
+document.getElementById("prev").addEventListener("click", () => { stop(); go(step - 1); });
+document.getElementById("wideBtn").addEventListener("click", () => setLayout("wide"));
+document.getElementById("tallBtn").addEventListener("click", () => setLayout("tall"));
+document.getElementById("reset").addEventListener("click", () => { store("rag-flow-" + layout, null); build(); });
+
+const fullBtn = document.getElementById("full");
+if (!chart.requestFullscreen) fullBtn.hidden = true;
+fullBtn.addEventListener("click", () => {
+  if (document.fullscreenElement) document.exitFullscreen(); else chart.requestFullscreen();
+});
+
+document.addEventListener("keydown", evt => {
+  if (evt.target.closest && evt.target.closest(".node")) return;
+  if (evt.key === "ArrowRight") { stop(); go(step + 1); }
+  else if (evt.key === "ArrowLeft") { stop(); go(step - 1); }
+  else if (evt.key === " " && evt.target.tagName !== "BUTTON") { evt.preventDefault(); play(); }
+});
+
+// ---- Video mode: the silent Reel / LinkedIn video (script in reels/2026-10-30-reel-rag-pdf-bot/) ----
+// cur = boxes glowing in this part, add = boxes that stay lit after it, edges = arrows a dot runs along (chain: one after another)
+const VIDEO_PARTS = [
+  { dur: 2.5, cover: true },
+  { dur: 3.5, cur: ["question"], cap: "A shopkeeper asks: <b>“Ghee aur butter pe GST kitna hai?”</b> The answer is somewhere in 872 pages." },
+  { dur: 3.5, cur: ["pdfs"], cap: "A RAG bot finds the right page first, then answers from it. Here is how, in <b>7 ideas</b>." },
+  { dur: 4, cur: ["load"], add: ["pdfs", "load"], edges: ["pdfs-load"], cap: "<b>1 ·</b> <b>Loading:</b> each PDF becomes plain text, page by page. The page number stays with the text." },
+  { dur: 4.5, cur: ["chunk", "store"], add: ["chunk", "store"], edges: ["load-chunk", "chunk-store"], chain: true, cap: "The text is cut into small pieces, turned into numbers, and stored with its page: <b>2,959 pieces</b>." },
+  { dur: 4, cur: ["rewrite"], add: ["question", "rewrite"], edges: ["question-rewrite"], cap: "<b>2 ·</b> <b>Query rewriting:</b> the Hinglish question becomes “GST rate on ghee and butter”." },
+  { dur: 4, cur: ["search"], add: ["search"], edges: ["rewrite-search", "store-search"], cap: "Search finds the <b>8 closest pieces</b>, by meaning and by keywords." },
+  { dur: 4.5, cur: ["grounded"], add: ["grounded"], edges: ["search-grounded"], cap: "<b>3 ·</b> <b>Grounded:</b> answer only from these 8 pieces. Not there? Say “not in the documents”." },
+  { dur: 4.5, cur: ["llm", "cite"], add: ["llm", "cite"], edges: ["grounded-llm", "llm-cite"], chain: true, cap: "<b>4 ·</b> <b>Citations:</b> the answer ends with the page it used, <b>[goods2025 p.1]</b>. Anyone can check it." },
+  { dur: 4, cur: ["answer"], add: ["answer"], edges: ["cite-answer"], cap: "<b>“Ghee aur butter pe GST 5% hai.”</b> With the page, and “confirm with your CA”." },
+  { dur: 4.5, cur: ["test", "score"], add: ["test", "score"], edges: ["test-score", "answer-score"], cap: "<b>5 ·</b> <b>Scoring:</b> 20 test questions. Meaning search only: <b>16 right</b>. Add keywords: <b>18</b>." },
+  { dur: 4, cur: ["failures"], add: ["failures"], edges: ["score-failures"], cap: "<b>6 ·</b> Read every miss. One answer showed the <b>right page and was still wrong</b>." },
+  { dur: 4, cur: ["frameworks"], add: ["frameworks"], edges: ["frameworks-store"], cap: "<b>7 ·</b> LangChain or LlamaIndex give <b>ready-made parts</b>. Build it by hand once first." },
+  { dur: 4.5, cur: ["grounded", "cite"], cap: "Bot making things up? <b>Answer only from your pages.</b> And show the page." },
+  { dur: 3, follow: true }
+];
+const DOT_TIME = 0.9, FADE = 0.3;
+
+function renderVideo(t) {
+  let start = 0, i = 0;
+  while (i < VIDEO_PARTS.length - 1 && t >= start + VIDEO_PARTS[i].dur) { start += VIDEO_PARTS[i].dur; i++; }
+  const part = VIDEO_PARTS[i], local = t - start;
+  const seenNodes = new Set(part.cur || []), seenEdges = new Set();
+  VIDEO_PARTS.slice(0, i + 1).forEach(p => { (p.add || []).forEach(n => seenNodes.add(n)); (p.edges || []).forEach(e => seenEdges.add(e)); });
+  const lit = part.follow || i === VIDEO_PARTS.length - 2; // the fix line shows the whole chart lit
+
+  svg.classList.add("playing");
+  for (const id in els.nodes) {
+    const g = els.nodes[id];
+    g.classList.toggle("seen", lit || seenNodes.has(id));
+    g.classList.toggle("cur", (part.cur || []).includes(id));
+    g.classList.remove("sel");
+  }
+  for (const id in els.edges) {
+    const { g, path } = els.edges[id];
+    const isCur = (part.edges || []).includes(id);
+    g.classList.toggle("seen", lit || seenEdges.has(id));
+    g.classList.toggle("cur", isCur);
+    path.setAttribute("marker-end", isCur ? "url(#arrow-cur)" : "url(#arrow)");
+  }
+
+  const layer = document.getElementById("dots");
+  layer.replaceChildren();
+  (part.edges || []).forEach((id, n) => {
+    const k = (local - (part.chain ? n * DOT_TIME : 0)) / DOT_TIME;
+    if (k < 0 || k > 1) return;
+    const path = els.edges[id].path;
+    const pt = path.getPointAtLength(path.getTotalLength() * k);
+    el("circle", { cx: pt.x, cy: pt.y, r: 7, fill: "#E8743B" }, layer);
+  });
+
+  const cap = document.getElementById("caption");
+  cap.innerHTML = part.cap || "";
+  cap.parentElement.style.opacity = part.cap ? Math.min(1, local / FADE) : 0;
+  const fadeIn = Math.min(1, local / FADE), fadeOut = Math.min(1, (part.dur - local) / FADE);
+  document.getElementById("cover").style.opacity = part.cover ? Math.min(1, fadeOut) : 0;
+  document.getElementById("follow").style.opacity = part.follow ? fadeIn : 0;
+}
+
+if (VIDEO) {
+  setLayout(VIDEO);
+  window.DURATION = VIDEO_PARTS.reduce((a, p) => a + p.dur, 0);
+  window.render = renderVideo;
+  renderVideo(0);
+} else {
+  const hash = location.hash;
+  const hashShape = /tall/.test(hash) ? "tall" : /wide/.test(hash) ? "wide" : null;
+  setLayout(hashShape || store("rag-flow-shape") || (window.innerWidth < 760 ? "tall" : "wide"));
+  const hashStep = hash.match(/step=(\d+)/);
+  if (hashStep) go(Number(hashStep[1]));
+}
+</script>
+</body>
+</html>
