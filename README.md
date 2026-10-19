@@ -18,7 +18,7 @@ The example all the way through is **Ask GST**, a bot that answers GST questions
 - `#tall&step=13` opens the Reel shape on the scoring step.
 
 ## The numbers
-20 test questions with known answers. Meaning search only: 16 right. Meaning + keyword search: 18 right.
+20 test questions with known answers. Meaning search only: 15 right. Meaning + keyword search: 17 right (run 19 Oct 2026).
 
 ## How it runs
 One HTML file, no server, no build step. Fonts from Google Fonts. Your box layout is saved in your own browser only.

@@ -154,7 +154,7 @@ const NODES = {
   cite:       { t: "Citations",         s: ["[goods2025 p.1]", "open the page, check it"], num: 4 },
   answer:     { t: "✅ The answer",     s: ["“Ghee aur butter pe", "GST 5% hai.”"], flow: true },
   test:       { t: "🧪 Test set",       s: ["20 questions,", "answers known"], flow: true },
-  score:      { t: "Scoring RAG",       s: ["meaning only: 16 of 20", "+ keywords: 18 of 20"], num: 5 },
+  score:      { t: "Scoring RAG",       s: ["meaning only: 15 of 20", "+ keywords: 17 of 20"], num: 5 },
   failures:   { t: "Common failures",   s: ["read every wrong answer"], num: 6 }
 };
 
@@ -223,7 +223,7 @@ const STEPS = [
   { node: "cite",       edges: ["llm-cite"], cap: "It ends with the pages it used: <b>[goods2025 p.1]</b>. Anyone can open that page and check." },
   { node: "answer",     edges: ["cite-answer"], cap: "<b>“Ghee aur butter pe GST 5% hai.”</b> The answer, the page, and “confirm with your CA”." },
   { node: "test",       edges: [], cap: "Does it really work? Ask <b>20 questions</b> you already know the answer to." },
-  { node: "score",      edges: ["test-score", "answer-score"], cap: "Meaning search only: <b>16 of 20</b> right. Meaning + keywords: <b>18 of 20</b>." },
+  { node: "score",      edges: ["test-score", "answer-score"], cap: "Meaning search only: <b>15 of 20</b> right. Meaning + keywords: <b>17 of 20</b>." },
   { node: "failures",   edges: ["score-failures"], cap: "Read every miss. One answer cited the <b>right page but was still wrong</b>." },
   { node: "frameworks", edges: ["frameworks-store"], cap: "LangChain or LlamaIndex give <b>ready-made parts</b> for all of this. Build it by hand once first." }
 ];
@@ -369,9 +369,9 @@ const DETAIL = {
     tag: "Idea 5", title: "Scoring RAG",
     helps: "Scoring checks two things: did search find the right page, and did the answer stick to that page.",
     blocks: [
-      ["In Ask GST", "Meaning search only: 16 of 20. Meaning + keywords: 18 of 20. These are the answers saved on 13 Oct, checked with today's eval.py."],
+      ["In Ask GST", "Meaning search only: 15 of 20. Meaning + keywords: 17 of 20. Run on 19 Oct with the current code."],
       ["Check your checker", "The first checker marked “₹20 lakh” wrong: the LLM had put a thin, special space between 20 and lakh. eval.py now cleans spaces first. Another miss said “naya GST rate” when the checker wanted “naya rate”. The answer was right."],
-      ["Watch out", "The two runs were made 12 minutes apart, and a setting changed in between. Run both again before you post the numbers."],
+      ["Watch out", "The score moves when the code changes. The answers saved on 13 Oct scored 16 and 18. Run the test set again after every change, and post only the newest numbers."],
       ["Go deeper", "A word match is a rough check. RAGAS uses an LLM as a judge. Context recall: did search bring the right page? Faithfulness: is every line of the answer backed by the pieces?"]
     ]
   },
@@ -704,7 +704,7 @@ const VIDEO_PARTS = [
   { dur: 4.5, cur: ["grounded"], add: ["grounded"], edges: ["search-grounded"], cap: "<b>3 ·</b> <b>Grounded:</b> answer only from these 8 pieces. Not there? Say “not in the documents”." },
   { dur: 4.5, cur: ["llm", "cite"], add: ["llm", "cite"], edges: ["grounded-llm", "llm-cite"], chain: true, cap: "<b>4 ·</b> <b>Citations:</b> the answer ends with the page it used, <b>[goods2025 p.1]</b>. Anyone can check it." },
   { dur: 4, cur: ["answer"], add: ["answer"], edges: ["cite-answer"], cap: "<b>“Ghee aur butter pe GST 5% hai.”</b> With the page, and “confirm with your CA”." },
-  { dur: 4.5, cur: ["test", "score"], add: ["test", "score"], edges: ["test-score", "answer-score"], cap: "<b>5 ·</b> <b>Scoring:</b> 20 test questions. Meaning search only: <b>16 right</b>. Add keywords: <b>18</b>." },
+  { dur: 4.5, cur: ["test", "score"], add: ["test", "score"], edges: ["test-score", "answer-score"], cap: "<b>5 ·</b> <b>Scoring:</b> 20 test questions. Meaning search only: <b>15 right</b>. Add keywords: <b>17</b>." },
   { dur: 4, cur: ["failures"], add: ["failures"], edges: ["score-failures"], cap: "<b>6 ·</b> Read every miss. One answer showed the <b>right page and was still wrong</b>." },
   { dur: 4, cur: ["frameworks"], add: ["frameworks"], edges: ["frameworks-store"], cap: "<b>7 ·</b> LangChain or LlamaIndex give <b>ready-made parts</b>. Build it by hand once first." },
   { dur: 4.5, cur: ["grounded", "cite"], cap: "Bot making things up? <b>Answer only from your pages.</b> And show the page." },
